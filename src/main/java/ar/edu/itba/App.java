@@ -34,15 +34,18 @@ public class App {
         DataReader reader = new DataReader(graph, path);
         reader.buildGraph();
 
-        graph.traversal().V().toStream().forEach(vertex -> {
-            for (Iterator<VertexProperty<Object>> it = vertex.properties(); it.hasNext(); ) {
-                VertexProperty p = it.next();
-                System.out.println(p.label());
-                System.out.println(p.value());
-            }
+//        graph.traversal().V().toStream().forEach(vertex -> {
+//            for (Iterator<VertexProperty<Object>> it = vertex.properties(); it.hasNext(); ) {
+//                VertexProperty p = it.next();
+//                System.out.println(p.label());
+//                System.out.println(p.value());
+//            }
+//
+//            System.out.println(vertex.label());
+//        });
 
-            System.out.println(vertex.label());
-        });
+        Operations operations = new Operations(graph);
+        operations.climb("phone", "city");
 
         graph.close();
     }
