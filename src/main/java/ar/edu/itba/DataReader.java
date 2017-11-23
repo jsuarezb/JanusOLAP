@@ -73,11 +73,13 @@ public class DataReader {
             if (i % 1000 == 0) {
                 System.out.println(String.format("User progress: %.2f %%", i * 100 / (double) lines.size()));
                 tx.commit();
+                tx.close();
                 tx = graph.newTransaction();
             }
         }
 
         tx.commit();
+        tx.close();
     }
 
     private void parseDateTimes() throws IOException {
@@ -106,11 +108,13 @@ public class DataReader {
             if (i % 1000 == 0) {
                 System.out.println(String.format("Date time progress: %.2f %%", i * 100 / (double) lines.size()));
                 tx.commit();
+                tx.close();
                 tx = graph.newTransaction();
             }
         }
 
         tx.commit();
+        tx.close();
     }
 
     private void parseCalls() throws IOException {
@@ -131,11 +135,13 @@ public class DataReader {
             if (i % 1000 == 0) {
                 System.out.println(String.format("Call progress: %.2f %%", i * 100 / (double) lines.size()));
                 tx.commit();
+                tx.close();
                 tx = graph.newTransaction();
             }
         }
 
         tx.commit();
+        tx.close();
     }
 
     private void newAll(String dimension) {
@@ -177,6 +183,7 @@ public class DataReader {
         if (!callIdsMap.containsKey(callId)) {
             JanusGraphVertex vertex = graph.addVertex("call");
             vertex.property("duration", duration);
+            vertex.property("visited", false);
 
             vertex.addEdge("calledBy", callerVertex);
             vertex.addEdge("atTime", timeVertex);

@@ -1,105 +1,134 @@
 package ar.edu.itba;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+
+import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.janusgraph.core.Cardinality;
 import org.janusgraph.core.JanusGraph;
 import org.janusgraph.core.JanusGraphFactory;
 import org.janusgraph.core.schema.JanusGraphManagement;
-import org.janusgraph.core.util.JanusGraphCleanup;
-
-import java.io.IOException;
-import java.util.Iterator;
 
 public class App {
 
-    public static void main(String[] args) throws IOException {
-        String path = args[0];
+	public static void main(String[] args) throws Exception {
+		String path = args[0];
 
-        final JanusGraph graph = JanusGraphFactory.build()
-                .set("storage.backend", "cassandra")
-                .set("storage.hostname", "10.16.6.21,10.16.6.22,10.16.6.23,10.16.6.24")
-                .set("storage.cassandra.replication-factor", 2)
-                .set("storage.cassandra.keyspace", "tcolloca")
-                .set("schema.default", "none")
-                .set("storage.username", "tcolloca")
-                .set("storage.password", "tcolloca")
-                .open();
+		final JanusGraph graph = JanusGraphFactory.build().set("storage.backend", "cassandra")
+				.set("storage.hostname", "10.16.6.21,10.16.6.22,10.16.6.23,10.16.6.24")
+				.set("storage.cassandra.replication-factor", 2).set("storage.cassandra.keyspace", "tcolloca")
+				.set("schema.default", "none").set("storage.username", "tcolloca").set("storage.password", "tcolloca")
+				.open();
 
-        System.out.println("Closed and cleared graph");
+		System.out.println("Closed and cleared graph");
 
-        buildSchema(graph);
+		buildSchema(graph);
 
-        System.out.println("Schema built");
+		System.out.println("Schema built");
 
-        DataReader reader = new DataReader(graph, path);
-        reader.buildGraph();
+		DataReader reader = new DataReader(graph, path);
+		reader.buildGraph();
 
-//        graph.traversal().V().toStream().forEach(vertex -> {
-//            for (Iterator<VertexProperty<Object>> it = vertex.properties(); it.hasNext(); ) {
-//                VertexProperty p = it.next();
-//                System.out.println(p.label());
-//                System.out.println(p.value());
-//            }
-//
-//            System.out.println(vertex.label());
-//        });
+		Operations operations = new Operations(graph);
+		operations.climb("phone", "allLocations");
+		operations.climb("timestamp", "year");
+		operations.minimize();
+		
+		graph.traversal().V().toStream().forEach(vertex -> {
+			System.out.println(toString(vertex));
+		});
 
-        Operations operations = new Operations(graph);
-        operations.climb("phone", "city");
+		graph.traversal().E().toStream().forEach(edge -> {
+			System.out.println(toString(edge));
+		});
+		
+		graph.close();
+	}
+	
+	public static String toString(Edge edge) {
+		StringBuilder strBuilder = new StringBuilder();
+		strBuilder.append(toString(edge.outVertex(), "value", "duration"));
+		strBuilder.append("- " + edge.label() + " -> ");
+		strBuilder.append(toString(edge.inVertex(), "value", "duration"));
+		return strBuilder.toString();
+	}
+	
+	public static String toString(Vertex vertex, String ... keys) {
+		List<String> keyList = keys != null ? Arrays.asList(keys) : new ArrayList<>();
+		StringBuilder strBuilder = new StringBuilder();
+		strBuilder.append("(v[" + vertex.id() + "] ");
+		strBuilder.append(vertex.label());
+		if (vertex.properties().hasNext()) {
+			strBuilder.append(": {");
+			for (Iterator<VertexProperty<Object>> it = vertex.properties(); it.hasNext();) {
+				VertexProperty<Object> p = it.next();
+				if (keyList.isEmpty() || keyList.contains(p.key())) {
+					strBuilder.append(p.value());
+					strBuilder.append(", ");
+				}
+			}
+			strBuilder.append("}");
+		}
+		strBuilder.append(")");
+		return strBuilder.toString();
+	}
 
-        graph.close();
-    }
+	private static void buildSchema(JanusGraph graph) {
+		JanusGraphManagement mgmt = graph.openManagement();
 
-    private static void buildSchema(JanusGraph graph) {
-        JanusGraphManagement mgmt = graph.openManagement();
+		addVertexLabel(mgmt, "phone");
+		addVertexLabel(mgmt, "user");
+		addVertexLabel(mgmt, "city");
+		addVertexLabel(mgmt, "country");
+		addVertexLabel(mgmt, "allLocations");
 
-        addVertexLabel(mgmt, "phone");
-        addVertexLabel(mgmt, "user");
-        addVertexLabel(mgmt, "city");
-        addVertexLabel(mgmt, "country");
-        addVertexLabel(mgmt, "allLocations");
+		addVertexLabel(mgmt, "operator");
+		addVertexLabel(mgmt, "allOperators");
 
-        addVertexLabel(mgmt, "operator");
-        addVertexLabel(mgmt, "allOperators");
+		addVertexLabel(mgmt, "timestamp");
+		addVertexLabel(mgmt, "day");
+		addVertexLabel(mgmt, "month");
+		addVertexLabel(mgmt, "year");
+		addVertexLabel(mgmt, "allTimes");
 
-        addVertexLabel(mgmt, "timestamp");
-        addVertexLabel(mgmt, "day");
-        addVertexLabel(mgmt, "month");
-        addVertexLabel(mgmt, "year");
-        addVertexLabel(mgmt, "allTimes");
+		addVertexLabel(mgmt, "call");
 
-        addVertexLabel(mgmt, "call");
+		addEdgeLabel(mgmt, "calledBy");
+		addEdgeLabel(mgmt, "integratedBy");
+		addEdgeLabel(mgmt, "atTime");
 
-        addEdgeLabel(mgmt, "calledBy");
-        addEdgeLabel(mgmt, "integratedBy");
-        addEdgeLabel(mgmt, "atTime");
+		addEdgeLabel(mgmt, "extendsFrom");
 
-        addEdgeLabel(mgmt, "extendsFrom");
+		addPropertyKey(mgmt, "value", String.class, Cardinality.SINGLE);
+		addPropertyKey(mgmt, "duration", Integer.class, Cardinality.LIST);
+		addPropertyKey(mgmt, "visited", Boolean.class, Cardinality.SINGLE);
 
-        addPropertyKey(mgmt, "value", String.class, Cardinality.SINGLE);
-        addPropertyKey(mgmt, "duration", Integer.class, Cardinality.LIST);
+		mgmt.commit();
+	}
 
-        mgmt.commit();
-    }
+	private static void addVertexLabel(JanusGraphManagement mgmt, String label) {
+		if (mgmt.getVertexLabel(label) != null)
+			return;
 
-    private static void addVertexLabel(JanusGraphManagement mgmt, String label) {
-        if (mgmt.getVertexLabel(label) != null)
-            return;
+		mgmt.makeVertexLabel(label).make();
+	}
 
-        mgmt.makeVertexLabel(label).make();
-    }
+	private static void addEdgeLabel(JanusGraphManagement mgmt, String label) {
+		if (mgmt.getEdgeLabel(label) != null)
+			return;
 
-    private static void addEdgeLabel(JanusGraphManagement mgmt, String label) {
-        if (mgmt.getEdgeLabel(label) != null)
-            return;
+		mgmt.makeEdgeLabel(label).make();
+	}
 
-        mgmt.makeEdgeLabel(label).make();
-    }
+	private static void addPropertyKey(JanusGraphManagement mgmt, String label, Class<?> dataType,
+			Cardinality cardinality) {
+		if (mgmt.getPropertyKey(label) != null)
+			return;
 
-    private static void addPropertyKey(JanusGraphManagement mgmt, String label, Class dataType, Cardinality cardinality) {
-        if (mgmt.getPropertyKey(label) != null)
-            return;
-
-        mgmt.makePropertyKey(label).dataType(dataType).cardinality(cardinality).make();
-    }
+		mgmt.makePropertyKey(label).dataType(dataType).cardinality(cardinality).make();
+	}
 }
