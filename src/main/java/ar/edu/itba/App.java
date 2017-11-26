@@ -12,19 +12,37 @@ import org.janusgraph.core.Cardinality;
 import org.janusgraph.core.JanusGraph;
 import org.janusgraph.core.JanusGraphFactory;
 import org.janusgraph.core.schema.JanusGraphManagement;
+import org.janusgraph.core.util.JanusGraphCleanup;
+import org.javatuples.Pair;
+
+import ar.edu.itba.Operations.Aggregation;
 
 public class App {
-
+	
 	public static void main(String[] args) throws Exception {
 		String path = args[0];
 
-		final JanusGraph graph = JanusGraphFactory.build().set("storage.backend", "cassandra")
-				.set("storage.hostname", "10.16.6.21,10.16.6.22,10.16.6.23,10.16.6.24")
-				.set("storage.cassandra.replication-factor", 2).set("storage.cassandra.keyspace", "tcolloca")
-				.set("schema.default", "none").set("storage.username", "tcolloca").set("storage.password", "tcolloca")
-				.open();
+		JanusGraph graph = null;
+		boolean isOpen = false;
+		boolean wasCleaned = false;
+		boolean cleanUp = false;
+		while (!isOpen) {
+			graph = JanusGraphFactory.build().set("storage.backend", "cassandra")
+					.set("storage.hostname", "10.16.6.21,10.16.6.22,10.16.6.23,10.16.6.24")
+					.set("storage.cassandra.replication-factor", 2).set("storage.cassandra.keyspace", "tcolloca")
+					.set("schema.default", "none").set("storage.username", "tcolloca").set("storage.password", "tcolloca")
+					.open();
+			isOpen = true;
+			
+			if (cleanUp && !wasCleaned) {
+				graph.close();
+				isOpen = false;
+				wasCleaned = true;
+				JanusGraphCleanup.clear(graph);
+				System.out.println("Closed and cleared graph");
+			}
+		}
 
-		System.out.println("Closed and cleared graph");
 
 		buildSchema(graph);
 
@@ -34,9 +52,9 @@ public class App {
 		reader.buildGraph();
 
 		Operations operations = new Operations(graph);
-		operations.climb("phone", "allLocations");
-		operations.climb("timestamp", "year");
-		operations.minimize();
+//		operations.slice("city", "Baluk");
+		operations.rollUp(Arrays.asList(new Pair<>("phone", "allLocations"), 
+				new Pair<>("timestamp", "year")), Aggregation.COUNT);
 		
 		graph.traversal().V().toStream().forEach(vertex -> {
 			System.out.println(toString(vertex));
@@ -104,7 +122,7 @@ public class App {
 		addEdgeLabel(mgmt, "extendsFrom");
 
 		addPropertyKey(mgmt, "value", String.class, Cardinality.SINGLE);
-		addPropertyKey(mgmt, "duration", Integer.class, Cardinality.LIST);
+		addPropertyKey(mgmt, "duration", Double.class, Cardinality.LIST);
 		addPropertyKey(mgmt, "visited", Boolean.class, Cardinality.SINGLE);
 
 		mgmt.commit();

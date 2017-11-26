@@ -2,15 +2,20 @@ package ar.edu.itba;
 
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
 import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
+import org.apache.tinkerpop.gremlin.structure.VertexProperty;
 import org.janusgraph.core.JanusGraph;
 import org.janusgraph.core.JanusGraphTransaction;
+import org.javatuples.Pair;
 
 public class Operations {
 
@@ -28,7 +33,7 @@ public class Operations {
      * all edges that go from a vertex R to V will now go to W. Also, all vertices in the path from V to 
      * W that have no edge that gets in them will be removed.
      */
-    public void climb(String bottom, String top) throws Exception {
+    public void climb(String bottom, String top) {
     	// Find all vertices with "bottom" label.
         GraphTraversal<Vertex, Vertex> bottomTraversal = graph.traversal().V().hasLabel(bottom);
         GraphTraversal<Vertex, Vertex> auxTraversal = bottomTraversal.asAdmin().clone();
@@ -36,7 +41,11 @@ public class Operations {
         // Find the ancestor vertex with label "top" for each "bottom" vertex.
         while (!auxTraversal.hasLabel(top).hasNext()) {
         	bottomTraversal = bottomTraversal.out("extendsFrom");
-            auxTraversal.close();
+            try {
+				auxTraversal.close();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
             auxTraversal = bottomTraversal.asAdmin().clone();
             if (bottomTraversal.count().next() == 0) {
             	throw new IllegalArgumentException(
@@ -122,5 +131,87 @@ public class Operations {
     			}
     		});
     	});
+    	
+    	// Remove the visited mark.
+    	calls = graph.traversal().V().hasLabel("call").toStream();
+    	calls.forEach(call -> call.property("visited", false));
+    }
+    
+    /**
+     * Aggregates over the array of durations for each call. 
+     */
+    public void aggregate(Aggregation agg) {
+    	Stream<Vertex> calls = graph.traversal().V().hasLabel("call").toStream();
+    	
+    	// Iterate over each call and aggregate over the array of durations.
+    	calls.forEach(call -> {
+    		Iterable<Double> durations = () -> call.values("duration");
+    		DoubleStream stream = StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
+    		
+    		// Remove the existing values of the duration array property.
+    		Iterator<VertexProperty<Double>> vpIt = call.properties("duration");
+    		while(vpIt.hasNext()) {
+    			vpIt.next().remove();
+    		}
+    		
+    		// Get the new duration value based on the corresponding aggregation.
+    		double value;
+    		switch (agg) {
+			case AVG:
+				value = stream.average().getAsDouble();
+				break;
+			case COUNT:
+				value = stream.count();
+				break;
+			case MAX:
+				value = stream.max().getAsDouble();
+				break;
+			case MIN:
+				value = stream.min().getAsDouble();
+				break;
+			case SUM:
+				value = stream.sum();
+				break;
+			default:
+				throw new IllegalArgumentException("Unknown aggregation: " + agg);
+    		}
+    		// Replace the duration value with the one after the aggregation.
+    		call.property("duration", value);
+    	});
+    }
+    
+    /**
+     * Rolls up from "bottom" to "top" using "agg" as aggregation.
+     */
+    public void rollUp(String bottom, String top, Aggregation agg) {
+    	climb(bottom, top);
+    	minimize();
+    	aggregate(agg);
+    }
+    
+    /**
+     * Rolls up from all "bottom"-"top" pairs, using "agg" as aggregation.
+     */
+    public void rollUp(List<Pair<String, String>> bottomTops, Aggregation agg) {
+    	for (Pair<String, String> bottomTop : bottomTops) {
+    		climb(bottomTop.getValue0(), bottomTop.getValue1());
+    	}
+    	minimize();
+    	aggregate(agg);
+    }
+//    
+//    /**
+//     * Slice over 
+//     */
+//    public void sliceEquals(String label, String value) {
+//    	// Find all vertices with the label and not the value, and remove them.
+//    	graph.traversal().V().hasLabel(label).toStream()
+//    		.filter(v -> !value.equals(v.value("value")))
+//    		.forEach(v -> v.remove());
+//    }
+    
+    public static enum Aggregation {
+    	
+    	SUM, AVG, MAX, MIN, COUNT;
     }
 }
