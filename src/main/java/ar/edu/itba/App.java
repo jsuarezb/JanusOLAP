@@ -52,7 +52,7 @@ public class App {
 		reader.buildGraph();
 
 		Operations operations = new Operations(graph);
-		operations.sliceNotEquals("city", "Baluk");
+		operations.diceNotEquals("city", "Baluk");
 //		operations.rollUp(Arrays.asList(new Pair<>("phone", "allLocations"), 
 //				new Pair<>("timestamp", "year")), Aggregation.COUNT);
 		

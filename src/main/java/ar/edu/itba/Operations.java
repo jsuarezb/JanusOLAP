@@ -204,7 +204,7 @@ public class Operations {
     /**
      * Keeps only facts that are related indirectly to vertices with label "label" only with value "value".
      */
-    public void sliceEquals(String label, String value) {
+    public void diceEquals(String label, String value) {
     	// Find all vertices with the label and not the value.
     	Stream<Vertex> verticesToRemove = graph.traversal().V().hasLabel(label).toStream()
     		.filter(v -> !value.equals(v.value("value")));
@@ -215,7 +215,7 @@ public class Operations {
     /**
      * Keeps only facts that are not related indirectly to vertices with label "label" only with value "value".
      */
-    public void sliceNotEquals(String label, String value) {
+    public void diceNotEquals(String label, String value) {
     	// Find all vertices with the label and the value.
     	Stream<Vertex> verticesToRemove = graph.traversal().V().hasLabel(label)
     			.has("value", value).toStream();
