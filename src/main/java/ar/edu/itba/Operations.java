@@ -4,6 +4,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.Spliterators;
 import java.util.stream.DoubleStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -199,16 +200,50 @@ public class Operations {
     	minimize();
     	aggregate(agg);
     }
-//    
-//    /**
-//     * Slice over 
-//     */
-//    public void sliceEquals(String label, String value) {
-//    	// Find all vertices with the label and not the value, and remove them.
-//    	graph.traversal().V().hasLabel(label).toStream()
-//    		.filter(v -> !value.equals(v.value("value")))
-//    		.forEach(v -> v.remove());
-//    }
+    
+    /**
+     * Keeps only facts that are related indirectly to vertices with label "label" only with value "value".
+     */
+    public void sliceEquals(String label, String value) {
+    	// Find all vertices with the label and not the value.
+    	Stream<Vertex> verticesToRemove = graph.traversal().V().hasLabel(label).toStream()
+    		.filter(v -> !value.equals(v.value("value")));
+    	
+    	removeIns(verticesToRemove);
+    }
+    
+    /**
+     * Keeps only facts that are not related indirectly to vertices with label "label" only with value "value".
+     */
+    public void sliceNotEquals(String label, String value) {
+    	// Find all vertices with the label and the value.
+    	Stream<Vertex> verticesToRemove = graph.traversal().V().hasLabel(label)
+    			.has("value", value).toStream();
+    	
+    	removeIns(verticesToRemove);
+    }
+    
+    /**
+     * Removes recursively all the in-vertices of the stream of vertices received. 
+     */
+    private void removeIns(Stream<Vertex> vertices) {
+    	Iterator<Vertex> it = vertices.iterator();
+    	if (!it.hasNext()) {
+    		return;
+    	}
+    	vertices = StreamSupport.stream(Spliterators.spliteratorUnknownSize(it, 0), false);
+    	vertices.forEach(v -> {
+    		try {
+	    		Iterable<Edge> edges = () -> v.edges(Direction.IN);
+	    		Stream<Vertex> outVertices = StreamSupport.stream(edges.spliterator(), true)
+	    				.map(edge -> edge.outVertex());
+    			v.remove();
+    			removeIns(outVertices);
+    		} catch (IllegalStateException e) {
+    			// Vertex was already removed.
+    		}
+    	});
+    }
     
     public static enum Aggregation {
     	
