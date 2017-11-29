@@ -1,15 +1,15 @@
 package ar.edu.itba;
 
-import org.janusgraph.core.JanusGraph;
-import org.janusgraph.core.JanusGraphTransaction;
-import org.janusgraph.core.JanusGraphVertex;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.janusgraph.core.JanusGraph;
+import org.janusgraph.core.JanusGraphTransaction;
+import org.janusgraph.core.JanusGraphVertex;
 
 public class DataReader {
 
@@ -149,6 +149,7 @@ public class DataReader {
             return;
 
         JanusGraphVertex vertex = graph.addVertex("all" + dimension);
+        vertex.property("type", "all" + dimension);
         vertex.property("value", "all" + dimension);
 
         allsMap.put(dimension, vertex);
@@ -159,6 +160,7 @@ public class DataReader {
             return;
 
         JanusGraphVertex vertex = graph.addVertex(label);
+        vertex.property("type", label);
         vertex.property("value", value);
         vertex.addEdge("extendsFrom", parent);
 
@@ -171,6 +173,7 @@ public class DataReader {
             return;
 
         JanusGraphVertex vertex = graph.addVertex(label);
+        vertex.property("type", label);
         vertex.property("value", value);
         vertex.addEdge("extendsFrom", parentOperator);
         vertex.addEdge("extendsFrom", parentUser);
@@ -182,6 +185,7 @@ public class DataReader {
                          JanusGraphVertex timeVertex, int duration) {
         if (!callIdsMap.containsKey(callId)) {
             JanusGraphVertex vertex = graph.addVertex("call");
+            vertex.property("type", "call");
             vertex.property("duration", duration);
             vertex.property("visited", false);
 
