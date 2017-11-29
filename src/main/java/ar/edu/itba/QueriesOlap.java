@@ -21,7 +21,7 @@ import ar.edu.itba.Operations.Aggregation;
 
 public class QueriesOlap {
 
-	private static boolean syso = true;
+	public static boolean sysoTuples;
 	
 	public static void query1_1(JanusGraph graph) {
 		query(graph, "phone", Aggregation.AVG, false);
@@ -71,9 +71,8 @@ public class QueriesOlap {
 				Iterable<Double> durations = () -> call.values("duration");
 	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
 			}), Aggregation.COUNT);
-			if (syso) {
+			if (sysoTuples) {
 				System.out.println(triplet.toString() + ": " + result);
-				syso = false;
 			}
 		});
 	}
@@ -127,9 +126,8 @@ public class QueriesOlap {
 				Iterable<Double> durations = () -> call.values("duration");
 	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
 			}), Aggregation.AVG);
-			if (syso) {
+			if (sysoTuples) {
 				System.out.println(triplet.toString() + ": " + result);
-				syso = false;
 			}
 		});
 	} 
@@ -180,9 +178,8 @@ public class QueriesOlap {
 				Iterable<Double> durations = () -> call.values("duration");
 	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
 			}), agg);
-			if (syso) {
+			if (sysoTuples) {
 				System.out.println(valuePair.toString() + ": " + result);
-				syso = false;
 			}
 		});
 	}

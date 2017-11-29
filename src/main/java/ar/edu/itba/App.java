@@ -2,17 +2,9 @@ package ar.edu.itba;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.StreamSupport;
 
-import org.apache.tinkerpop.gremlin.process.traversal.Path;
-import org.apache.tinkerpop.gremlin.process.traversal.dsl.graph.GraphTraversal;
-import org.apache.tinkerpop.gremlin.structure.Direction;
 import org.apache.tinkerpop.gremlin.structure.Edge;
 import org.apache.tinkerpop.gremlin.structure.Vertex;
 import org.apache.tinkerpop.gremlin.structure.VertexProperty;
@@ -22,18 +14,13 @@ import org.janusgraph.core.JanusGraphFactory;
 import org.janusgraph.core.PropertyKey;
 import org.janusgraph.core.schema.JanusGraphManagement;
 import org.janusgraph.core.util.JanusGraphCleanup;
-import org.javatuples.Pair;
-import org.javatuples.Triplet;
 import org.slf4j.LoggerFactory;
 
-import ar.edu.itba.Operations.Aggregation;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 
 public class App {
-	
-	private static boolean syso = true;
 	
 	private JanusGraph graph;
 	private JanusGraphManagement mgmt;
@@ -41,14 +28,18 @@ public class App {
 	public static void main(String[] args) throws Exception {
 		String path = args[0];
 		String query = args[1];
-		new App(path, query);
+		boolean sysoTuples = args.length >= 3 ? Boolean.valueOf(args[2]) : false;
+		new App(path, query, sysoTuples);
 	}
 	
-	public App(String path, String query) throws Exception {
+	public App(String path, String query, boolean sysoTuples) throws Exception {
 		// Sets the package level to INFO
 		LoggerContext loggerContext = (LoggerContext)LoggerFactory.getILoggerFactory();
 		Logger rootLogger = loggerContext.getLogger(Logger.ROOT_LOGGER_NAME);
 		rootLogger.setLevel(Level.INFO);
+		
+		QueriesOlap.sysoTuples = sysoTuples;
+		QueriesNotOlap.sysoTuples = sysoTuples;
 		
 		boolean isOpen = false;
 		boolean wasCleaned = false;
@@ -101,14 +92,30 @@ public class App {
 		case "2_1":
 			QueriesOlap.query2_1(graph);
 			break;
+		case "1_1_not_olap":
 		case "1_1_1_not_olap":
-			query1_1_1(graph);
+			QueriesNotOlap.query1_1_1(graph);
 			break;
 		case "1_1_2_not_olap":
-			query1_1_2(graph);
+			QueriesNotOlap.query1_1_2(graph);
+			break;
+		case "1_2_not_olap":
+			QueriesNotOlap.query1_2(graph);
+			break;
+		case "1_3_not_olap":
+			QueriesNotOlap.query1_3(graph);
+			break;
+		case "1_4_not_olap":
+			QueriesNotOlap.query1_4(graph);
+			break;
+		case "1_5_not_olap":
+			QueriesNotOlap.query1_5(graph);
+			break;
+		case "1_6_not_olap":
+			QueriesNotOlap.query1_6(graph);
 			break;
 		case "2_1_not_olap":
-			query2_1(graph);
+			QueriesNotOlap.query2_1(graph);
 			break;
 		}
 		long end = System.currentTimeMillis();
@@ -213,143 +220,5 @@ public class App {
 		}
 		return prop;
 	}
-	
-	public static void query1_1_1(JanusGraph graph) {
-		
-		GraphTraversal<Vertex, Vertex> calls = graph.traversal().V().has("type", "call");
-		
-		Map<Pair<String, String>, Set<Vertex>> tripletsMap = new HashMap<>();
 
-		calls.toStream().forEach(call -> {
-			Iterator<Edge> edgesIt = call.edges(Direction.OUT, "integratedBy", "calledBy");
-			Set<String> users = new HashSet<String>();
-			while (edgesIt.hasNext()) {
-				String user = edgesIt.next().inVertex().value("value");
-				users.add(user);
-			}
-			if (users.size() < 2) {
-				return;
-			}
-			for (String user1 : users) {
-				for (String user2 : users) {
-					if (user1.equals(user2)) {
-						continue;
-					}
-					Pair<String, String> triplet = new Pair<>(user1, user2);
-					tripletsMap.putIfAbsent(triplet, new HashSet<Vertex>());
-					tripletsMap.get(triplet).add(call);
-				}
-			}
-		});
-		
-		tripletsMap.entrySet().stream().forEach(entry -> {
-			Pair<String, String> triplet = entry.getKey();
-			if (triplet.getValue1().compareTo(triplet.getValue0()) <= 0) {
-				return;
-			}
-			Set<Vertex> callSet = entry.getValue();
-			double result = Operations.agg(callSet.stream().flatMapToDouble(call -> {
-				Iterable<Double> durations = () -> call.values("duration");
-	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
-			}), Aggregation.AVG);
-			if (syso) {
-				System.out.println(triplet.toString() + ": " + result);
-				syso = false;
-			}
-		});
-	} 
-	
-	public static void query1_1_2(JanusGraph graph) {
-		
-		GraphTraversal<Vertex, Path> paths = graph.traversal().V().has("type", "phone")
-				.in("integratedBy", "calledBy").out("integratedBy", "calledBy").path();
-		
-		Map<Pair<String, String>, Set<Vertex>> tripletsMap = new HashMap<>();
-
-		paths.toStream().forEach(path -> {
-			String value1 = ((Vertex) path.get(0)).value("value");
-			String value2 = ((Vertex) path.get(2)).value("value");
-			Pair<String, String> phonePair = new Pair<>(value1, value2);
-			Vertex call = (Vertex) path.get(1);
-			
-			tripletsMap.putIfAbsent(phonePair, new HashSet<Vertex>());
-			tripletsMap.get(phonePair).add(call);
-		});
-		
-		tripletsMap.entrySet().stream().forEach(entry -> {
-			Pair<String, String> triplet = entry.getKey();
-			if (triplet.getValue1().compareTo(triplet.getValue0()) <= 0) {
-				return;
-			}
-			Set<Vertex> callSet = entry.getValue();
-			double result = Operations.agg(callSet.stream().flatMapToDouble(call -> {
-				Iterable<Double> durations = () -> call.values("duration");
-	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
-			}), Aggregation.AVG);
-			if (syso) {
-				System.out.println(triplet.toString() + ": " + result);
-				syso = false;
-			}
-		});
-	} 
-	
-	public static void query2_1(JanusGraph graph) {
-		
-		GraphTraversal<Vertex, Vertex> calls = graph.traversal().V().has("type", "month")
-				.has("value", "4-2017")
-				.in() // day
-				.in() // timestamp
-				.in(); // call
-		
-		Map<Triplet<String, String, String>, Set<Vertex>> tripletsMap = new HashMap<>();
-
-		calls.toStream().forEach(call -> {
-			Iterator<Edge> edgesIt = call.edges(Direction.OUT, "integratedBy", "calledBy");
-			Set<String> users = new HashSet<String>();
-			while (edgesIt.hasNext()) {
-				Edge edge = edgesIt.next();
-				Iterator<Edge> inEdgesIt = edge.inVertex().edges(Direction.OUT);
-				String user = null;
-				while (inEdgesIt.hasNext()) {
-					Vertex v = inEdgesIt.next().inVertex();
-					if (v.label().equals("user")) {
-						user = v.value("value");
-					}
-				}
-				users.add(user);
-			}
-			if (users.size() < 3) {
-				return;
-			}
-			for (String user1 : users) {
-				for (String user2 : users) {
-					for (String user3 : users) {
-						if (user1.equals(user2) || user3.equals(user1) || user3.equals(user2)) {
-							continue;
-						}
-						Triplet<String, String, String> triplet = new Triplet<>(user1, user2, user3);
-						tripletsMap.putIfAbsent(triplet, new HashSet<Vertex>());
-						tripletsMap.get(triplet).add(call);
-					}
-				}
-			}
-		});
-		
-		tripletsMap.entrySet().stream().forEach(entry -> {
-			Triplet<String, String, String> triplet = entry.getKey();
-			if (triplet.getValue1().compareTo(triplet.getValue0()) <= 0 
-					|| triplet.getValue2().compareTo(triplet.getValue1()) <= 0) {
-				return;
-			}
-			Set<Vertex> callSet = entry.getValue();
-			double result = Operations.agg(callSet.stream().flatMapToDouble(call -> {
-				Iterable<Double> durations = () -> call.values("duration");
-	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
-			}), Aggregation.AVG);
-			if (syso) {
-				System.out.println(triplet.toString() + ": " + result);
-				syso = false;
-			}
-		});
-	} 
 }

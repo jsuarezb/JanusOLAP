@@ -259,9 +259,4 @@ public class Operations {
 		}
     	return value;
     }
-    
-    public static enum Aggregation {
-    	
-    	ARRAY, SUM, AVG, MAX, MIN, COUNT;
-    }
 }
