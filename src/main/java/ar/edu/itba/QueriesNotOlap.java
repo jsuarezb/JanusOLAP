@@ -18,7 +18,7 @@ import org.javatuples.Triplet;
 
 public class QueriesNotOlap {
 
-	public static boolean sysoTuples;
+	public static boolean printTuples;
 	
 	public static void query1_1_1(JanusGraph graph) {
 		
@@ -162,7 +162,7 @@ public class QueriesNotOlap {
 				Iterable<Double> durations = () -> call.values("duration");
 	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
 			}), Aggregation.COUNT);
-			if (sysoTuples) {
+			if (printTuples) {
 				System.out.println(triplet.toString() + ": " + result);
 			}
 		});
@@ -303,7 +303,7 @@ public class QueriesNotOlap {
 				Iterable<Double> durations = () -> call.values("duration");
 	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
 			}), agg);
-			if (sysoTuples) {
+			if (printTuples) {
 				System.out.println(pair.toString() + ": " + result);
 			}
 		});
@@ -322,7 +322,7 @@ public class QueriesNotOlap {
 				Iterable<Double> durations = () -> call.values("duration");
 	    		return StreamSupport.stream(durations.spliterator(), true).mapToDouble(x -> x);
 			}), agg);
-			if (sysoTuples) {
+			if (printTuples) {
 				System.out.println(triplet.toString() + ": " + result);
 			}
 		});
